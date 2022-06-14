@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="description" content="" />
+  <meta name="author" content="Jungkook park" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+  <meta http-equiv="Expires" content="-1">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Cache-Control" content="No-Cache">
+
+  <title>WebSocket Test</title>
+
+  <link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.0.1/css/bootstrap.min.css"
+    integrity="sha512-Ez0cGzNzHR1tYAv56860NLspgUGuQw16GiOOp/I2LuTmpSK9xDXlgJz3XN4cnpXWDmkNBKXR/VDMTCnAaEooxA=="
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <style type="text/css">
+    pre {
+      background-color: #f8f8f8;
+      border: 1px solid silver;
+      padding: 10px 20px;
+      margin-top: 5px;
+    }
+  </style>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"
+    integrity="sha512-894YE6QWD5I59HgZOGReFYm4dnWc1Qt5NtvYSaNcOP+u1T9qYdvdihz0PPSiiqn/+/3e7Jo4EaG7TubfWGUrMQ=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.0.1/js/bootstrap.min.js"
+    integrity="sha512-EKWWs1ZcA2ZY9lbLISPz8aGR2+L7JVYqBAYTq5AXgBkSjRSuQEGqWx8R1zAX16KdXPaCjOCaKE8MCpU0wcHlHA=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+  <script>
+    $(function () {
+      const startDate = new Date();
+
+      let websockConn = null;
+
+      function writeLog(message) {
+        const $logBox = $("#log_box");
+        const currDate = new Date();
+        const elapsed = ((currDate.getTime() - startDate.getTime()) / 1000.0).toFixed(2);
+
+        $logBox.prepend(
+          $("<div>")
+            .attr("title", currDate.toString())
+            .html(`[${elapsed}] ${message}`)
+        );
+      }
+
+      function getBaseUrl() {
+        return window.location.protocol.replace(/^http/, "ws") + "//" + window.location.host;
+      }
+
+      function websocketConnect(endpoint) {
+        websocketDisconnect();
+
+        websockConn = new WebSocket(endpoint);
+        writeLog("Connecting...");
+
+        websockConn.onopen = () => {
+          writeLog("Connected.");
+          updateUI();
+        };
+
+        websockConn.onmessage = event => {
+          writeLog("Received: " + event.data);
+        };
+
+        websockConn.onclose = event => {
+          writeLog(`Disconnected. [Code: ${event.code}, Reason: ${event.reason}]`);
+          websockConn = null;
+          updateUI();
+        };
+      }
+
+      function websocketDisconnect(closeCode) {
+        if (websockConn !== null) {
+          writeLog("Disconnecting...");
+          if (closeCode) {
+            websockConn.close(closeCode);
+          } else {
+            websockConn.close();
+          }
+          websockConn = null;
+        }
+      }
+
+      function updateUI() {
+        if (websockConn == null || websockConn.readyState !== WebSocket.OPEN) {
+          $("#connected_protocol").html("");
+          $("#connect_div").show();
+          $("#disconnect_div").hide();
+        } else {
+          $("#connected_protocol").html(`protocol: ${websockConn.protocol}`);
+          $("#connect_div").hide();
+          $("#disconnect_div").show();
+        }
+      }
+
+      $(document).ready(event => {
+        $("#endpoint_input").val(getBaseUrl() + "/ws");
+      });
+
+      $("#clear_btn").on("click", event => {
+        $("#log_box").html("");
+      });
+
+      $("#connect_btn").on("click", event => {
+        const endpoint = $("#endpoint_input").val();
+        websocketConnect(endpoint);
+      });
+
+      $("#disconnect_btn").on("click", event => {
+        const closeCode = $("#close_code_input").val();
+        websocketDisconnect(closeCode);
+      });
+
+      $("#send_btn").on("click", event => {
+        if (websockConn != null && websockConn.readyState == WebSocket.OPEN) {
+          const message = $("#message_input").val();
+          writeLog("Send: " + message);
+          websockConn.send(message);
+        }
+      });
+    });
+  </script>
+</head>
+
+<body>
+  <div class="container">
+    <h2>WebSocket Test</h2>
+
+    <div class="input-group mt-4">
+      <span class="input-group-text">endpoint</span>
+      <input type="text" id="endpoint_input" class="form-control" placeholder="ws://...">
+    </div>
+
+    <div class="clearfix mt-1">
+      <div id="connected_protocol" class="float-start"></div>
+      <div class="float-end">
+        <div id="connect_div">
+          <button id="connect_btn" type="button" class="btn btn-primary">connect</button>
+        </div>
+        <div id="disconnect_div" style="display: none;">
+          <input type="number" id="close_code_input" placeholder="close code">
+          <button id="disconnect_btn" type="button" class="btn btn-danger">disconnect</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-group mt-4">
+      <span class="input-group-text">message</span>
+      <input type="text" id="message_input" class="form-control" placeholder="message to send...">
+      <button id="send_btn" type="button" class="btn btn-outline-primary">send</button>
+    </div>
+
+    <div class="mt-4">
+      <div class="text-end">
+        <button id="clear_btn" type="button" class="btn btn-outline-secondary btn-sm">clear</button>
+      </div>
+      <pre id="log_box"></pre>
+    </div>
+  </div>
+</body>
+
+</html>
